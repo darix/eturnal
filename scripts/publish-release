@@ -28,6 +28,8 @@ domain="$rel_name.net"
 ip_addr=$(host "$domain" | awk '/has address/ {print $NF}')
 myself=${0##*/}
 
+obs_working_copy=../obs/devel:languages:erlang/eturnal/
+
 if [ $# != 0 ]
 then
 	echo >&2 "Usage: $0"
@@ -47,6 +49,20 @@ sleep 5
 
 # Push release into Git repository.
 git push "$upstream_name" "$main_branch" "$rel_vsn"
+
+rm ${obs_working_copy}/*.tar.gz
+cp "$rel_name-$rel_vsn.tar.gz" ${obs_working_copy}/
+pushd ${obs_working_copy} 2> /dev/null
+obs_message="Update to ${rel_vsn}:\n    https://github.com/processone/eturnal/releases/tag/${rel_vsn}"
+# mark old tarball as to deleted and add the new
+osc addremove
+# update the version field in the spec file
+perl -p -i -e 's|^(Version:\s+)(\S+)$|$1'${rel_vsn}'|g' eturnal.spec
+# update eturnal.changes
+osc vc -m "${obs_message}"
+# commit changes
+osc ci -m "${obs_message}"
+popd 2> /dev/null
 
 # Copy tarballs and packages to web site.
 mv "$rel_name-$rel_vsn.tar.gz" "$dl_dir"
